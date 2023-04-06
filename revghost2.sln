@@ -1,0 +1,40 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "revghost2", "revghost2\revghost2.csproj", "{02DD1B10-328D-4DB4-91DD-0129B5659583}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "revghost2.Runner", "revghost2.Runner\revghost2.Runner.csproj", "{F7EC8344-E673-4074-8CCA-FA9580636ECD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Flecs", "flecs-cs\src\cs\production\Flecs\Flecs.csproj", "{D3480348-1FD7-4107-8119-3B7D791E8957}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "revghost2.SourceGenerator", "revghost2.SourceGenerator\revghost2.SourceGenerator.csproj", "{B367B419-6F71-4138-8E61-658923EC2BA2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "revghost2.Tests", "revghost2.Tests\revghost2.Tests.csproj", "{3F52D2F1-E352-40DB-8A5E-1E5468C253EC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{02DD1B10-328D-4DB4-91DD-0129B5659583}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{02DD1B10-328D-4DB4-91DD-0129B5659583}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{02DD1B10-328D-4DB4-91DD-0129B5659583}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{02DD1B10-328D-4DB4-91DD-0129B5659583}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F7EC8344-E673-4074-8CCA-FA9580636ECD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F7EC8344-E673-4074-8CCA-FA9580636ECD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F7EC8344-E673-4074-8CCA-FA9580636ECD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F7EC8344-E673-4074-8CCA-FA9580636ECD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D3480348-1FD7-4107-8119-3B7D791E8957}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D3480348-1FD7-4107-8119-3B7D791E8957}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D3480348-1FD7-4107-8119-3B7D791E8957}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D3480348-1FD7-4107-8119-3B7D791E8957}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B367B419-6F71-4138-8E61-658923EC2BA2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B367B419-6F71-4138-8E61-658923EC2BA2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B367B419-6F71-4138-8E61-658923EC2BA2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B367B419-6F71-4138-8E61-658923EC2BA2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3F52D2F1-E352-40DB-8A5E-1E5468C253EC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3F52D2F1-E352-40DB-8A5E-1E5468C253EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3F52D2F1-E352-40DB-8A5E-1E5468C253EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3F52D2F1-E352-40DB-8A5E-1E5468C253EC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
