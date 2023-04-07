@@ -11,4 +11,14 @@
       <ProjectReference Include="..\flecs-cs\src\cs\production\Flecs\Flecs.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Include="JetBrains.Annotations" Version="2023.2.0-eap1" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Content Include="Native\libs\libflecs.so">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+    </ItemGroup>
+
 </Project>

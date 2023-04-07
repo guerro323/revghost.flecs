@@ -9,26 +9,48 @@ public unsafe class Prout
     public class Stuff
     {
         public int Foo, Bar;
+
+        ~Stuff()
+        {
+            Console.WriteLine($"Finalized foo={Foo}, bar={Bar}");
+        }
+    }
+
+    private static int _callCount = 0;
+
+    private static IntPtr[] AllocateArrayOfStuff(int count)
+    {
+        var withHandles = new IntPtr[count];
+        var array = new Stuff[count];
+        for (var i = 0; i < array.Length; i++)
+            array[i] = new Stuff {Foo = i + 8 + _callCount, Bar = 1 + i * 2};
+            
+        for (var i = 0; i < withHandles.Length; i++)
+        {
+            var target = GCHandle.Alloc(array[i], GCHandleType.Normal).Target;
+            var ptr = (IntPtr*) Unsafe.AsPointer(ref target);
+            withHandles[i] = ptr[0];
+        }
+        
+        _callCount++;
+
+
+        return withHandles;
     }
     
     public static void DoMyStuff()
     {
-        flecs.ecs_component_desc_t
-        
-        var array = new Stuff[4];
-        for (var i = 0; i < array.Length; i++)
-            array[i] = new Stuff {Foo = i + 8, Bar = 1 + i * 2};
-
-        var withHandles = new IntPtr[4];
-        for (var i = 0; i < withHandles.Length; i++)
+        var first = AllocateArrayOfStuff(100);
+        var firstRet = Cast<IntPtr, Stuff>(first);
+        for (var num = 0; num < 100; num++)
         {
-            var target = GCHandle.Alloc(array[i], GCHandleType.Pinned).Target;
-            var ptr = (IntPtr*) Unsafe.AsPointer(ref target);
-            withHandles[i] = ptr[0];
-        }
+            var withHandles = AllocateArrayOfStuff(100);
+            for (var i = 0; i < 10; i++)
+                GC.Collect();
 
-        var ret = Cast<IntPtr, Stuff>(withHandles);
-        Console.WriteLine($"{ret[0].Foo} {ret[1].Bar}");
+            var ret = Cast<IntPtr, Stuff>(withHandles);
+            Console.WriteLine($"{ret[0].Foo} {ret[1].Bar}   (first: {firstRet[0].Foo} {firstRet[1].Bar})");
+        }
     }
 
     public static Span<TTo> Cast<TFrom, TTo>(Span<TFrom> span)

@@ -11,7 +11,7 @@ public class OnAdd : IObserveAction, IStaticEntityReserveId
 {
     public static EntityId? ReservedId()
     {
-        return flecs.pinvoke_EcsOnAdd();
+        return flecs.EcsOnAdd;
     }
 }
 
@@ -27,7 +27,7 @@ public class OnRemove : IObserveAction, IStaticEntityReserveId
 {
     public static EntityId? ReservedId()
     {
-        return flecs.pinvoke_EcsOnRemove();
+        return flecs.EcsOnRemove;
     }
 }
 

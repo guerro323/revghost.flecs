@@ -488,9 +488,9 @@ public class GenerateDslSubGenerator : SubGenerator
                     }
                     
                     if (export.Kind == EKind.System)
-                        codeBuilder.AppendLine($"EcsSourceGenerator.SetupSystemManaged(world.Handle, entity, Filter, state, typeof(__THIS__), {callback});");
+                        codeBuilder.AppendLine($"ProcessorUtility.SetupSystemManaged(world.Handle, entity, Filter, state, typeof(__THIS__), {callback});");
                     else if (export.Kind == EKind.Observer)
-                        codeBuilder.AppendLine($"EcsSourceGenerator.SetupObserverManaged(world.Handle, entity, Filter, state, typeof(__THIS__), {callback});");
+                        codeBuilder.AppendLine($"ProcessorUtility.SetupObserverManaged(world.Handle, entity, Filter, state, typeof(__THIS__), {callback});");
                     
                     codeBuilder.AppendLine("_ = nameof(Each); // reference it so the editor and compiler doesn't complain it's unused");
                 }

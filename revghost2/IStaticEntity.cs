@@ -19,12 +19,12 @@ public class AnyEntity<T> : IStaticEntity, IStaticEntitySetup, IStaticEntityCust
     {
         if (typeof(T) == typeof(float))
         {
-            return flecs.pinvoke_ecs_f32_t();
+            return flecs.FLECS__Eecs_f32_t;
         }
 
         if (typeof(T) == typeof(int))
         {
-            return flecs.pinvoke_ecs_i32_t();
+            return flecs.FLECS__Eecs_i32_t;
         }
 
         return null;
