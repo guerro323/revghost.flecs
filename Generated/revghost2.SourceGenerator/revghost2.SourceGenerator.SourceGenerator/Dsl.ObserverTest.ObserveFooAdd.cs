@@ -37,7 +37,7 @@ unsafe partial class ObserverTest
         {
             var entity = __FLECS__.ecs_get_scope(world.Handle);
             var state = (__SYSTEM_STATE__*) NativeMemory.AllocZeroed((nuint) Unsafe.SizeOf<__SYSTEM_STATE__>());
-            EcsSourceGenerator.SetupObserverManaged(world.Handle, entity, Filter, state, typeof(ObserveFooAdd), &EachUnmanaged);
+            ProcessorUtility.SetupObserverManaged(world.Handle, entity, Filter, state, typeof(ObserveFooAdd), &EachUnmanaged);
             _ = nameof(Each); // reference it so the editor and compiler doesn't complain it's unused
         }
         [UnmanagedCallersOnly]

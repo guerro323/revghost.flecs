@@ -6,6 +6,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using flecs_hub;
+using revghost2;
 using revghost2.Components;
 using revghost2.Utilities.Generator;
 
@@ -47,7 +48,7 @@ unsafe partial class HierarchyTest
         {
             var entity = __FLECS__.ecs_get_scope(world.Handle);
             var state = (__SYSTEM_STATE__*) NativeMemory.AllocZeroed((nuint) Unsafe.SizeOf<__SYSTEM_STATE__>());
-            EcsSourceGenerator.SetupSystemManaged(world.Handle, entity, Filter, state, typeof(WriteSystem), &EachUnmanaged);
+            ProcessorUtility.SetupSystemManaged(world.Handle, entity, Filter, state, typeof(WriteSystem), &EachUnmanaged);
             _ = nameof(Each); // reference it so the editor and compiler doesn't complain it's unused
         }
         [UnmanagedCallersOnly]

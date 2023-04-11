@@ -1,23 +1,21 @@
 using System.Numerics;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using flecs_hub;
-using revghost2.Components;
-using revghost2.Utilities.Generator;
+using revghost.flecs;
+using revghost.flecs.Components;
+using revghost.flecs.Utilities.Generator;
 
 namespace revghost2.Runner;
 
 public partial class HierarchyTest
 {
-    public struct Local : IComponent<Module>
+    public partial struct Local : IComponent<Module>
     {
     }
 
-    public struct World : IComponent<Module>
+    public partial struct World : IComponent<Module>
     {
     }
 
-    public struct Position : IComponent<Module>
+    public partial struct Position : IComponent<Module>
     {
         public Vector3 Value;
     }
@@ -52,7 +50,7 @@ public partial class HierarchyTest
 
     public struct Module : IModule
     {
-        public static void Setup(revghost2.World world)
+        public static void Setup(revghost.flecs.World world)
         {
             world.Register<Position>();
             world.Register<Local>();

@@ -1,30 +1,36 @@
 using System.Runtime.InteropServices;
 
-namespace revghost2.Runner;
+namespace revghost.flecs.Runner;
 
-public class RelationShipComponent
+/*
+ *
+ * Recreated the relationship example from flecs-cs
+ * 
+ */
+
+public partial class RelationShipComponent
 {
-    public struct Requires : IComponent
+    public partial struct Requires : IComponent
     {
         public float Amount;
     }
     
-    public struct Expires : IComponent
+    public partial struct Expires : IComponent
     {
         public float Timeout;
     }
     
-    public struct Position : IComponent
+    public partial struct Position : IComponent
     {
         public float X;
         public float Y;
     }
 
-    public struct Gigawatts : ITag
+    public partial struct Gigawatts : ITag
     {
     }
 
-    public struct MustHave : ITag
+    public partial struct MustHave : ITag
     {
     }
     

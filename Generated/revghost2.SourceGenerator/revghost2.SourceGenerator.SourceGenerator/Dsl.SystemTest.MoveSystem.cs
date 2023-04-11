@@ -50,7 +50,7 @@ unsafe partial class SystemTest
         {
             var entity = __FLECS__.ecs_get_scope(world.Handle);
             var state = (__SYSTEM_STATE__*) NativeMemory.AllocZeroed((nuint) Unsafe.SizeOf<__SYSTEM_STATE__>());
-            EcsSourceGenerator.SetupSystemManaged(world.Handle, entity, Filter, state, typeof(MoveSystem), &EachUnmanaged);
+            ProcessorUtility.SetupSystemManaged(world.Handle, entity, Filter, state, typeof(MoveSystem), &EachUnmanaged);
             _ = nameof(Each); // reference it so the editor and compiler doesn't complain it's unused
         }
         [UnmanagedCallersOnly]

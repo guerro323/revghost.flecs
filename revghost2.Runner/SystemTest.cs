@@ -1,17 +1,16 @@
 using System.Numerics;
-using flecs_hub;
-using revghost2.Utilities.Generator;
+using revghost.flecs;
 
 namespace revghost2.Runner;
 
 public partial class SystemTest
 {
-    public struct Position : IComponent<Module>
+    public partial struct Position : IComponent<Module>
     {
         public Vector3 Value;
     }
 
-    public struct Velocity : IComponent<Module>
+    public partial struct Velocity : IComponent<Module>
     {
         public Vector3 Value;
     }

@@ -57,7 +57,7 @@ unsafe partial class NestedQueryTest
                 };
                 state->_query = __FLECS__.ecs_query_init(world.Handle, &queryDesc);
             }
-            EcsSourceGenerator.SetupSystemManaged(world.Handle, entity, Filter, state, typeof(GlobalSystem), &EachUnmanaged);
+            ProcessorUtility.SetupSystemManaged(world.Handle, entity, Filter, state, typeof(GlobalSystem), &EachUnmanaged);
             _ = nameof(Each); // reference it so the editor and compiler doesn't complain it's unused
         }
         [UnmanagedCallersOnly]

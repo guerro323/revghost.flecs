@@ -19,20 +19,20 @@ unsafe partial class Tests
             {
                 new()
                 {
+                    id = (revghost2.StaticEntity<T0>.Id),
+                    inout = __FLECS__.ecs_inout_kind_t.EcsInOut,
+                    src = new()
+                    {
+                    },
+                },
+                new()
+                {
                     id = (revghost2.StaticEntity<global::revghost2.Tests.Tests.EntryModule.Position>.Id),
                     inout = __FLECS__.ecs_inout_kind_t.EcsOut,
                     src = new()
                     {
                         id = default,
                         flags = __FLECS__.EcsIsEntity,
-                    },
-                },
-                new()
-                {
-                    id = (revghost2.StaticEntity<T0>.Id),
-                    inout = __FLECS__.ecs_inout_kind_t.EcsInOut,
-                    src = new()
-                    {
                     },
                 },
             };
@@ -54,7 +54,7 @@ unsafe partial class Tests
             {
                 var entity = __FLECS__.ecs_get_scope(world.Handle);
                 var state = (__SYSTEM_STATE__*) NativeMemory.AllocZeroed((nuint) Unsafe.SizeOf<__SYSTEM_STATE__>());
-                EcsSourceGenerator.SetupSystemManaged(world.Handle, entity, Filter, state, typeof(Hello<T0>), (delegate*unmanaged<__FLECS__.ecs_iter_t*, void>) Marshal.GetFunctionPointerForDelegate(EachUnmanaged));
+                ProcessorUtility.SetupSystemManaged(world.Handle, entity, Filter, state, typeof(Hello<T0>), (delegate*unmanaged<__FLECS__.ecs_iter_t*, void>) Marshal.GetFunctionPointerForDelegate(EachUnmanaged));
                 _ = nameof(Each); // reference it so the editor and compiler doesn't complain it's unused
             }
             private static unsafe void EachUnmanaged(__FLECS__.ecs_iter_t* __it__)

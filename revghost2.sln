@@ -1,14 +1,12 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "revghost2", "revghost2\revghost2.csproj", "{02DD1B10-328D-4DB4-91DD-0129B5659583}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "revghost.flecs", "revghost.flecs\revghost.flecs.csproj", "{02DD1B10-328D-4DB4-91DD-0129B5659583}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "revghost2.Runner", "revghost2.Runner\revghost2.Runner.csproj", "{F7EC8344-E673-4074-8CCA-FA9580636ECD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Flecs", "flecs-cs\src\cs\production\Flecs\Flecs.csproj", "{D3480348-1FD7-4107-8119-3B7D791E8957}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "revghost.flecs.SourceGenerator", "revghost.flecs.SourceGenerator\revghost.flecs.SourceGenerator.csproj", "{B367B419-6F71-4138-8E61-658923EC2BA2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "revghost2.SourceGenerator", "revghost2.SourceGenerator\revghost2.SourceGenerator.csproj", "{B367B419-6F71-4138-8E61-658923EC2BA2}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "revghost2.Tests", "revghost2.Tests\revghost2.Tests.csproj", "{3F52D2F1-E352-40DB-8A5E-1E5468C253EC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "revghost.flecs.Tests", "revghost.flecs.Tests\revghost.flecs.Tests.csproj", "{3F52D2F1-E352-40DB-8A5E-1E5468C253EC}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

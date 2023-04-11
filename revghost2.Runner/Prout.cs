@@ -2,7 +2,20 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using flecs_hub;
 
-namespace revghost2.Runner;
+namespace revghost.flecs.Runner;
+
+/*
+ *
+ * Originally I wanted to have class references stored in flecs memory.
+ * It was going well, I didn't needed to differentiate from a class and a struct in the public API;
+ * but it needed the references to be pinned to safely get the memory address (and pinning is bad in the long term¹).
+ * So it was removed in favor of managed structs along with some source generator benefits.
+ *
+ * Still, this was a good experiment.
+ *
+ * ¹ If it was possible to create objects directly in the POH then it wouldn't be an issue (like GC.AllocateArray<>(..., pinned: true))
+ * 
+ */
 
 public unsafe class Prout
 {

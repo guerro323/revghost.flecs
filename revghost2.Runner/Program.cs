@@ -3,15 +3,11 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
 using flecs_hub;
-using revghost2;
+using revghost.flecs;
 using revghost2.Runner;
-using static revghost2.Components.NativeFunctions;
 
 unsafe
 {
-    Prout.DoMyStuff();
-    return;
-
     [UnmanagedCallersOnly]
     static void Callback(flecs.ecs_iter_t* it)
     {
@@ -47,7 +43,7 @@ unsafe
 
         var parent = view.New("parent");
         view.New("AnotherChild")
-            .Add(ChildOf(parent));
+            .AddChild(parent);
         
         view.New("Fromage")
             .Add((EntityId.ChildOf, parent));
@@ -57,7 +53,7 @@ unsafe
             Name = "Child",
             Add = stackalloc Identifier[]
             {
-                ChildOf(parent)
+                PairId.From(EntityId.ChildOf, parent)
             }
         });
 
@@ -118,12 +114,12 @@ struct GuerroModule : IModule
     }
 }
 
-struct Tag : IComponent<GuerroModule>
+partial struct Tag : IComponent<GuerroModule>
 {
     
 }
 
-struct Position : IComponent<GuerroModule>
+partial struct Position : IComponent<GuerroModule>
 {
     public float Value;
     public Vector3 Vector;
