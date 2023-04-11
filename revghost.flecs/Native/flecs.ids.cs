@@ -18,8 +18,7 @@ public unsafe partial class flecs
         {
             if (!field.IsInitOnly)
                 continue;
-
-            Console.WriteLine($"set {field.Name}");
+            
             field.SetValue(null, GetEntity(field.Name));
         }
     }

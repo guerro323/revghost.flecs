@@ -362,6 +362,7 @@ public static unsafe class StaticEntity<T>
 
         FullPath = StaticEntity.GetData(Id).FullPath;
         
-        Console.WriteLine($"Register {Name} with Id {Id.Handle.Data.Data} (ParentId={ParentId.Handle.Data.Data}) (FullPath={FullPath})");
+        // TODO: better logging (console.writeline is a no-no)
+        // Console.WriteLine($"Register {Name} with Id {Id.Handle.Data.Data} (ParentId={ParentId.Handle.Data.Data}) (FullPath={FullPath})");
     }
 }

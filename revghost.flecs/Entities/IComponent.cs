@@ -51,7 +51,8 @@ public interface IComponentAuto : IComponent, IStaticEntitySetupWithSelf, IStati
                     type = field.Type
                 };
 
-                Console.WriteLine($"add member [{i}] {field.Name} ({StaticEntity.GetData(field.Type).Name})");
+                // todo: better logging
+                // Console.WriteLine($"add member [{i}] {field.Name} ({StaticEntity.GetData(field.Type).Name})");
             }
 
             flecs.ecs_struct_init(world.Handle, &structDesc);
