@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace revghost.flecs;
 
 using flecs = flecs_hub.flecs;
@@ -9,8 +11,8 @@ public interface IComponent : IStaticEntity, IStaticEntitySetup, IStaticEntityIs
 
 public interface IComponentAuto : IComponent, IStaticEntitySetupWithSelf, IStaticEntityIsTypeWithSelf
 {
-    static void IStaticEntitySetup.Setup(World world) => throw new NotImplementedException();
-    static StaticEntityTypeData.Field[] IStaticEntityIsType.Members() => throw new NotImplementedException();
+    static void IStaticEntitySetup.Setup(World world) => throw new UnreachableException();
+    static StaticEntityTypeData.Field[] IStaticEntityIsType.Members() => throw new UnreachableException();
     
     static unsafe void IStaticEntitySetupWithSelf.Setup<T>(World world)
     {
