@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 
 namespace revghost.flecs;
 
@@ -7,10 +8,16 @@ namespace revghost.flecs;
 /// </summary>
 public interface IEntityFilter
 {
+    static abstract flecs_hub.flecs.ecs_filter_desc_t GetFilter();
+    
+    Entity Entity { get; }
+    EntityId Id { get; }
 }
 
 public interface IProcessor : IStaticEntity, IStaticEntitySetup, IEntityFilter
 {
+    static abstract flecs_hub.flecs.ecs_iter_action_t GetAction();
+    
     [EditorBrowsable(EditorBrowsableState.Never)]
     void Each();
 }

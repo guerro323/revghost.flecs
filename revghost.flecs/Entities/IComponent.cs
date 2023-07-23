@@ -23,7 +23,7 @@ public interface IComponentAuto : IComponent, IStaticEntitySetupWithSelf, IStati
             type = new flecs.ecs_type_info_t
             {
                 size = ManagedTypeData<T>.Size,
-                alignment = ManagedTypeData<T>.Size == 0 ? 0 : 4
+                alignment = ManagedTypeData<T>.Alignment
             }
         };
         
@@ -86,7 +86,7 @@ public interface IComponent<TModule> : IComponent, IStaticEntityParent<TModule>
 
 public interface ITag : IComponent {}
 
-public interface ITag<TModule> : IComponent<TModule>
+public interface ITag<TModule> : ITag, IComponent<TModule>
     where TModule : IModule
 {
 }

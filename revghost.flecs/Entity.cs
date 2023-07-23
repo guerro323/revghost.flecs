@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using static flecs_hub.flecs;
 using JetBrains.Annotations;
 
@@ -12,6 +13,8 @@ public unsafe struct Entity : IDisposable
     public World World;
     public EntityId Id;
 
+    public bool Exists => Id != default && ecs_exists(World.Handle, Id);
+    
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public readonly Pair With(Entity other)
     {
@@ -19,6 +22,9 @@ public unsafe struct Entity : IDisposable
     }
 
     public readonly NativeStringView Name => new(ecs_get_name(World.Handle, Id));
+
+    public Entity this[ReadOnlySpan<char> path] => World.Lookup(this, path);
+    public Entity this[ReadOnlySpan<byte> path] => World.Lookup(this, path);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static implicit operator EntityId(Entity entity)
@@ -31,6 +37,16 @@ public unsafe struct Entity : IDisposable
     {
         if (World != other)
             throw new InvalidOperationException("not the same world");
+    }
+    
+    /// <summary>
+    /// Ensure that this entity exists
+    /// </summary>
+    [UnscopedRef]
+    public ref Entity Ensure()
+    {
+        ecs_ensure(World.Handle, Id);
+        return ref this;
     }
     
     [UnscopedRef]
@@ -62,7 +78,7 @@ public unsafe struct Entity : IDisposable
     public ref Entity Add<T>()
         where T : IComponent
     {
-        ecs_add_id(World.Handle, Id, StaticEntity<T>.Id);
+        ecs_add_id(World.Handle, Id, World.Get<T>().Id);
         return ref this;
     }
     
@@ -71,19 +87,20 @@ public unsafe struct Entity : IDisposable
         where TLeft : IComponent
         where TRight : IComponent
     {
-        ecs_add_id(World.Handle, Id, PairId.From(StaticEntity<TLeft>.Id, StaticEntity<TRight>.Id).Handle);
+        ecs_add_id(World.Handle, Id, PairId.From(World.Get<TLeft>().Id, World.Get<TRight>().Id).Handle);
         return ref this;
     }
-    
+
     [UnscopedRef]
     public ref Entity Set<T>(in T data)
         where T : IComponent
     {
         ecs_set_id(
             World.Handle,
-            Id, StaticEntity<T>.Id,
+            Id, World.Get<T>().Id,
             (ulong) Unsafe.SizeOf<T>(), Unsafe.AsPointer(ref Unsafe.AsRef(in data))
         );
+
         return ref this;
     }
     
@@ -103,7 +120,7 @@ public unsafe struct Entity : IDisposable
     {
         ecs_set_id(
             World.Handle,
-            Id, ecs_pair(StaticEntity<TLeft>.Id, StaticEntity<TRight>.Id),
+            Id, ecs_pair(World.Get<TLeft>().Id, World.Get<TRight>().Id),
             (ulong) Unsafe.SizeOf<TRight>(), Unsafe.AsPointer(ref Unsafe.AsRef(in data))
         );
         return ref this;
@@ -126,7 +143,7 @@ public unsafe struct Entity : IDisposable
     {
         ecs_set_id(
             World.Handle,
-            Id, ecs_pair(StaticEntity<TLeft>.Id, StaticEntity<TRight>.Id),
+            Id, ecs_pair(World.Get<TLeft>().Id, World.Get<TRight>().Id),
             (ulong) Unsafe.SizeOf<TRight>(), Unsafe.AsPointer(ref Unsafe.AsRef(in data))
         );
         return ref this;
@@ -149,7 +166,18 @@ public unsafe struct Entity : IDisposable
     {
         var data = ecs_get_id(
             World.Handle,
-            Id, ecs_pair(StaticEntity<TLeft>.Id, StaticEntity<TRight>.Id)
+            Id, ecs_pair(World.Get<TLeft>().Id, World.Get<TRight>().Id)
+        );
+        return ref Unsafe.AsRef<TLeft>(data);
+    }
+    
+    [UnscopedRef]
+    public ref TLeft GetFirst<TLeft>(Identifier right)
+        where TLeft : IComponent
+    {
+        var data = ecs_get_id(
+            World.Handle,
+            Id, ecs_pair(World.Get<TLeft>().Id, right.Handle)
         );
         return ref Unsafe.AsRef<TLeft>(data);
     }
@@ -161,9 +189,31 @@ public unsafe struct Entity : IDisposable
     {
         var data = ecs_get_id(
             World.Handle,
-            Id, ecs_pair(StaticEntity<TRight>.Id, StaticEntity<TLeft>.Id)
+            Id, ecs_pair(World.Get<TLeft>().Id, World.Get<TRight>().Id)
         );
         return ref Unsafe.AsRef<TRight>(data);
+    }
+    
+    [UnscopedRef]
+    public ref TRight GetSecond<TRight>(Identifier left)
+        where TRight : IComponent
+    {
+        var data = ecs_get_id(
+            World.Handle,
+            Id, ecs_pair(left.Handle, World.Get<TRight>().Id)
+        );
+        return ref Unsafe.AsRef<TRight>(data);
+    }
+
+    public Entity GetTarget<T>(int index = 0)
+        where T : IComponent
+    {
+        var data = ecs_get_target(
+            World.Handle,
+            Id, World.Get<T>().Id,
+            index
+        );
+        return this with {Id = data};
     }
     
     [UnscopedRef]
@@ -172,20 +222,57 @@ public unsafe struct Entity : IDisposable
     {
         var data = ecs_get_id(
             World.Handle,
-            Id, StaticEntity<T>.Id
+            Id, World.Get<T>().Id
         );
         return ref Unsafe.AsRef<T>(data);
     }
     
-    [UnscopedRef]
-    public ref T Has<T>()
+    public T GetOrDefault<T>(T whenNotFound = default)
         where T : IComponent
     {
+        if (!Has<T>())
+            return whenNotFound;
+        
         var data = ecs_get_id(
             World.Handle,
-            Id, StaticEntity<T>.Id
+            Id, World.Get<T>().Id
         );
-        return ref Unsafe.AsRef<T>(data);
+        return Unsafe.AsRef<T>(data);
+    }
+    
+    public bool Has<T>()
+        where T : IComponent
+    {
+        return ecs_has_id(
+            World.Handle,
+            Id, World.Get<T>().Id
+        );
+    }
+    
+    public bool Has(Pair pair)
+    {
+        ThrowOnWorldMismatch(pair.World);
+        
+        return ecs_has_id(
+            World.Handle,
+            Id, pair.Id.Handle
+        );
+    }
+    
+    public bool Has(PairId pair)
+    {
+        return ecs_has_id(
+            World.Handle,
+            Id, pair.Handle
+        );
+    }
+    
+    public bool Has(Identifier id)
+    {
+        return ecs_has_id(
+            World.Handle,
+            Id, id.Handle
+        );
     }
     
     [UnscopedRef]
@@ -210,7 +297,7 @@ public unsafe struct Entity : IDisposable
     public ref Entity Remove<T>()
         where T : IComponent
     {
-        ecs_remove_id(World.Handle, Id, StaticEntity<T>.Id);
+        ecs_remove_id(World.Handle, Id, World.Get<T>().Id);
         return ref this;
     }
     
@@ -219,7 +306,7 @@ public unsafe struct Entity : IDisposable
         where TLeft : IComponent
         where TRight : IComponent
     {
-        ecs_remove_id(World.Handle, Id, PairId.From(StaticEntity<TLeft>.Id, StaticEntity<TRight>.Id).Handle);
+        ecs_remove_id(World.Handle, Id, PairId.From(World.Get<TLeft>().Id, World.Get<TRight>().Id).Handle);
         return ref this;
     }
 
@@ -240,7 +327,7 @@ public struct EntityId : IEquatable<EntityId>
 {
     public bool Equals(EntityId other)
     {
-        return Handle.Equals(other.Handle);
+        return Handle.Data.Data.Equals(other.Handle.Data.Data);
     }
 
     public override bool Equals(object? obj)
@@ -287,6 +374,18 @@ public struct EntityId : IEquatable<EntityId>
     
     public ecs_entity_t Handle;
 
+    public bool Is<TStatic>()
+        where TStatic : IStaticEntity
+    {
+        return this == StaticEntity<TStatic>.Id;
+    }
+    
+    public bool IsNot<TStatic>()
+        where TStatic : IStaticEntity
+    {
+        return this != StaticEntity<TStatic>.Id;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public readonly PairId With(EntityId other)
     {
@@ -309,6 +408,14 @@ public struct EntityId : IEquatable<EntityId>
     {
         EntityId ret;
         ret.Handle = id;
+        return ret;
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static implicit operator EntityId(PairId pair)
+    {
+        EntityId ret;
+        ret.Handle = pair.Handle;
         return ret;
     }
     

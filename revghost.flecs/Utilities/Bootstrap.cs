@@ -29,7 +29,7 @@ public static unsafe class Bootstrap
 
         var appDesc = new flecs.ecs_app_desc_t();
         appDesc.target_fps = conf.TargetFps;
-        appDesc.delta_time = conf.TargetFrameTime;
+        appDesc.delta_time = conf.ForcedDeltaTime;
         
         return flecs.ecs_app_run(world.Handle, &appDesc);
     }
@@ -38,7 +38,7 @@ public static unsafe class Bootstrap
 public struct ApplicationConfig
 {
     public int TargetFps = 0;
-    public float TargetFrameTime = 0;
+    public float ForcedDeltaTime = 0;
 
     public ApplicationConfig()
     {

@@ -19,35 +19,35 @@ public class RefAttribute<TLeft, TRight> : QueryDslAttribute, IFinishTerm
 [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Method, AllowMultiple = true)]
 public class InAttribute<T> : QueryDslAttribute, IFinishTerm
 {
-    public InAttribute(string name) {}
+    public InAttribute() {}
 }
 
 [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Method, AllowMultiple = true)]
 public class InAttribute<TLeft, TRight> : QueryDslAttribute, IFinishTerm
 {
-    public InAttribute(string name) {}
+    public InAttribute() {}
 }
 
 [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Method, AllowMultiple = true)]
-public class NoneAttribute<T> : QueryDslAttribute
+public class NoneAttribute<T> : QueryDslAttribute, IFinishTerm
 {
 }
 
 [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Method, AllowMultiple = true)]
-public class NoneAttribute<TLeft, TRight> : QueryDslAttribute
+public class NoneAttribute<TLeft, TRight> : QueryDslAttribute, IFinishTerm
 {
 }
 
 [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Method, AllowMultiple = true)]
 public class OrAttribute<T> : QueryDslAttribute
 {
-    public OrAttribute(string name) {}
+    public OrAttribute() {}
 }
 
 [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Method, AllowMultiple = true)]
 public class OrAttribute<TLeft, TRight> : QueryDslAttribute
 {
-    public OrAttribute(string name) {}
+    public OrAttribute() {}
 }
 
 [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Method, AllowMultiple = true)]
@@ -90,6 +90,9 @@ public class PairSecond<T> : QueryDslAttribute
 
 [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Method, AllowMultiple = true)]
 public class TermOptionalAttribute : QueryDslAttribute {}
+
+[AttributeUsage(AttributeTargets.Field)]
+public class SingletonAttribute : QueryDslAttribute {}
 
 [AttributeUsage(AttributeTargets.Struct)]
 public class MultiThreadedAttribute : Attribute

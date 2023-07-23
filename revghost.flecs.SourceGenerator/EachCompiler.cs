@@ -10,6 +10,15 @@ public struct FieldInfo
     
     public string Name;
     public string TypeName;
+
+    public bool IsEntity => TypeName == "global::revghost.flecs.Entity";
+    public bool IsEntityId => TypeName == "global::revghost.flecs.EntityId";
+    public bool IsPair => TypeName == "global::revghost.flecs.Pair";
+    public bool IsPairId => TypeName == "global::revghost.flecs.PairId";
+    public bool IsAnyEntity => IsEntity || IsEntityId || IsPair || IsPairId;
+
+    public IPropertySymbol BuiltinProperty;
+    public bool IsSingle;
 }
 
 // TODO: This should be rewritten with a walker pattern instead of a visitor pattern
@@ -19,6 +28,8 @@ public struct EachCompiler
     public Dictionary<string, List<FieldInfo>> Terms;
     public CodeBuilder Builder;
     public SyntaxNode Body;
+
+    public bool IsForeach;
 
     public Action<string> Log;
     public bool HasArity;
@@ -36,7 +47,7 @@ public struct EachCompiler
         if (!HasArity)
             Builder.AppendLine("[UnmanagedCallersOnly]");
         
-        Builder.AppendLine("private static unsafe void EachUnmanaged(__FLECS__.ecs_iter_t* __it__)");
+        Builder.AppendLine("public static unsafe void EachUnmanaged(__FLECS__.ecs_iter_t* __it__)");
         Builder.BeginBracket();
         {
             Builder.AppendLine("var __state__ = (__SYSTEM_STATE__*) __it__->ctx;");
@@ -47,19 +58,36 @@ public struct EachCompiler
             {
                 if (term.IsBuiltin)
                     continue;
-                
-                Builder.AppendLine(
-                    $"var c{i} = ({term.TypeName}*) __FLECS__.ecs_field_w_size(__it__, (ulong) Unsafe.SizeOf<{term.TypeName}>(), {i});"
-                );
+
+                if (term.IsAnyEntity)
+                {
+                    Builder.AppendLine(
+                        $"var c{i} = ({term.TypeName}) __FLECS__.ecs_field_id(__it__, {i});"
+                    );
+                }
+                else
+                {
+                    Builder.AppendLine(
+                        $"var c{i} = ({term.TypeName}*) __FLECS__.ecs_field_w_size(__it__, (ulong) Unsafe.SizeOf<{term.TypeName}>(), {i});"
+                    );
+                }
+
                 i++;
             }
 
-            Builder.AppendLine("for (var i0 = 0; i0 < __it__->count; i0++)");
+            // TODO: we need to be more strict on system with no main queries (the user should put an attribute)
+            if (IsForeach)
+                Builder.AppendLine("for (var i0 = 0; i0 < __it__->count; i0++)");
             Builder.BeginBracket();
             {
-                var rewriter = new Rewriter { Base = this, Log = Log, Terms = Terms };
+                var rewriter = new Rewriter {Base = this, Log = Log, Terms = Terms};
                 Body = rewriter.Visit(Body);
                 Builder.AppendLine(Body.ToString());
+
+                if (IsForeach)
+                    Builder.AppendLine("__Return: continue;");
+                else
+                    Builder.AppendLine("__Return: return;");
             }
             Builder.EndBracket();
         }
@@ -110,6 +138,23 @@ public struct EachCompiler
         private (string? filter, FieldInfo componentField)? GetFieldSymbolFrom(MemberAccessExpressionSyntax memberAccess)
         {
             Log($" searching: {memberAccess}");
+
+            if (Base.Model.GetSymbolInfo(memberAccess).Symbol is { } possibleBuiltinSymbol)
+            {
+                if (possibleBuiltinSymbol.ContainingType is {Name: "ProcessorContext"} 
+                    && possibleBuiltinSymbol is IPropertySymbol prop
+                    && prop.GetAttributes().Any(a => a.AttributeClass!.Name.StartsWith("ProcessorReplaceWith")))
+                {
+                    Log($"Processor Builtin: {prop.Name}");
+                    return (null, new FieldInfo
+                    {
+                        IsBuiltin = true,
+                        Name = prop.Name,
+                        TypeName = prop.Type.GetTypeName(),
+                        BuiltinProperty = prop
+                    });
+                }
+            }
             
             var symbolInfo = Base.Model.GetSymbolInfo(memberAccess.Expression);
             Log($"  maybe: {symbolInfo.Symbol} ({memberAccess})");
@@ -121,12 +166,15 @@ public struct EachCompiler
             if (symbolInfo.Symbol is { } maybe)
             {
                 Log($"   candidate found... containing={maybe.ContainingType}");
-                if (Base.originFields.FirstOrDefault(f => f.Type.Equals(maybe.ContainingType)) is { } field)
+                if (Base.originFields.FirstOrDefault(
+                        f => f.Type.Equals(maybe.ContainingType) &&
+                             f.Type.AllInterfaces.Any(i => i.Name == "IEntityFilter")
+                    ) is { } field)
                 {
                     Log($"   break now! found a good candidate {field.Name} <=> {maybe.Name}");
                     return (field.Name, Terms[field.Name].Find(f => f.Name == maybe.Name));
                 }
-                
+
                 if (maybe.Name.StartsWith("__it__"))
                 {
                     return (null, new FieldInfo {IsBuiltin = true, Name = memberAccess.Name.ToString()});
@@ -151,6 +199,8 @@ public struct EachCompiler
                         Log($"Parent pattern span: {parentPattern.Span} {_replacedIdentifiers.ContainsKey(parentPattern)}");
                         return (replaced.filter, new FieldInfo {Name = replaced.componentName});
                     }
+
+                    return default;
                     throw new InvalidOperationException($"Unknown for {local} -> {local.OriginalDefinition} -> {local.DeclaringSyntaxReferences[0].Span}");
                 }
 
@@ -172,16 +222,30 @@ public struct EachCompiler
             return null;
         }
 
-        private ElementAccessExpressionSyntax CreateComponentAccess(string filterName, int componentIndex, SyntaxNode original)
+        private ExpressionSyntax CreateComponentAccess(string filterName, int componentIndex, FieldInfo info, SyntaxNode original)
         {
             var foreachIndex = IndexInMap(filterName);
             if (foreachIndex < 0)
                 throw new InvalidOperationException($"filter not found? '{filterName}'");
+
+            if (info.IsAnyEntity)
+            {
+                return SyntaxFactory.ParseExpression($"c{filterName}{componentIndex + 1}");
+            }
             
             var list = new SeparatedSyntaxList<ArgumentSyntax>();
-            list = list.Add(SyntaxFactory.Argument(
-                SyntaxFactory.IdentifierName($"i{foreachIndex}")
-            ));
+            if (info.IsSingle)
+            {
+                list = list.Add(SyntaxFactory.Argument(
+                    SyntaxFactory.ParseExpression("0")
+                ));
+            }
+            else
+            {
+                list = list.Add(SyntaxFactory.Argument(
+                    SyntaxFactory.IdentifierName($"i{foreachIndex}")
+                ));
+            }
 
             return SyntaxFactory.ElementAccessExpression(
                 SyntaxFactory.IdentifierName($"c{filterName}{componentIndex + 1}"),
@@ -240,7 +304,7 @@ while (__FLECS__.ecs_query_next({{varItName}})) {
                 
                 var subIndex = IndexOfTerm(filterField, tuple.componentField.Name);
                 Log($"Component Access {filterField}.{tuple.componentField.Name}.{subIndex}");
-                if (subIndex == -1)
+                if (subIndex == -1 && !tuple.componentField.IsBuiltin)
                     return node;
 
                 // Pardon my french, I didn't found an elegant way for prevent doubles and making sure that members are preserved
@@ -255,6 +319,24 @@ while (__FLECS__.ecs_query_next({{varItName}})) {
                 {
                     var itVar = string.Format(IteratorVarName, filterField);
                     var indexName = $"i{IndexInMap(filterField)}";
+
+                    if (tuple.componentField.BuiltinProperty is { } prop)
+                    {
+                        var attr = prop.GetAttributes()
+                            .FirstOrDefault(a => a.AttributeClass.Name.StartsWith("ProcessorReplaceWith"));
+                        if (attr != null)
+                        {
+                            return SyntaxFactory.ParseExpression(
+                                attr.ConstructorArguments[0].Value!.ToString()!
+                                    .Replace("%iter%", itVar)
+                                    .Replace("%indexName%", indexName)
+                            );
+                        }
+                    }
+
+                    if (node.Expression is MemberAccessExpressionSyntax && string.IsNullOrEmpty(filterField))
+                        return node;
+                        
                     if (tuple.componentField.Name == "Id")
                     {
                         return SyntaxFactory.ParseExpression(
@@ -272,44 +354,64 @@ while (__FLECS__.ecs_query_next({{varItName}})) {
                     if (tuple.componentField.Name == "DeltaTime")
                     {
                         return SyntaxFactory.ParseExpression(
-                            $"global::revghost.flecs.World.FromExistingUnsafe({itVar}->delta_time){leftOver}"
+                            $"(global::revghost.flecs.World.FromExistingUnsafe({itVar}->delta_time){leftOver})"
                         );
                     }
                     
                     if (tuple.componentField.Name == "SystemDeltaTime")
                     {
                         return SyntaxFactory.ParseExpression(
-                            $"global::revghost.flecs.World.FromExistingUnsafe({itVar}->system_delta_time){leftOver}"
+                            $"(global::revghost.flecs.World.FromExistingUnsafe({itVar}->system_delta_time){leftOver})"
                         );
                     }
                     
                     if (tuple.componentField.Name == "World")
                     {
                         return SyntaxFactory.ParseExpression(
-                            $"global::revghost.flecs.World.FromExistingUnsafe({itVar}->world){leftOver}"
+                            $"(global::revghost.flecs.World.FromExistingUnsafe({itVar}->world){leftOver})"
                         );
                     }
                     
-                    if (tuple.componentField.Name == "World")
+                    if (tuple.componentField.Name == "Event")
                     {
                         return SyntaxFactory.ParseExpression(
-                            $"global::revghost.flecs.World.FromExistingUnsafe({itVar}->real_world){leftOver}"
+                            $"{itVar}->event"
+                        );
+                    }
+                    
+                    if (tuple.componentField.Name == "EventId")
+                    {
+                        return SyntaxFactory.ParseExpression(
+                            $"{itVar}->event_id"
+                        );
+                    }
+                    
+                    if (tuple.componentField.Name == "RealWorld")
+                    {
+                        return SyntaxFactory.ParseExpression(
+                            $"(global::revghost.flecs.World.FromExistingUnsafe({itVar}->real_world){leftOver})"
                         );
                     }
                 }
                 
-                Log($"replace with {CreateComponentAccess(filterField, subIndex, node)}.{node.Name}");
+                Log($"replace with {CreateComponentAccess(filterField, subIndex, tuple.componentField, node)}.{node.Name}");
+                
                 if (string.IsNullOrEmpty(leftOver))
-                    return CreateComponentAccess(filterField, subIndex, node);
+                    return CreateComponentAccess(filterField, subIndex, tuple.componentField, node);
                 
                 return SyntaxFactory.MemberAccessExpression(
                     SyntaxKind.SimpleMemberAccessExpression,
-                    CreateComponentAccess(tuple.filter ?? string.Empty, subIndex, node),
+                    CreateComponentAccess(tuple.filter ?? string.Empty, subIndex, tuple.componentField, node),
                     node.Name
                 );
             }
 
             return base.VisitMemberAccessExpression(node);
+        }
+
+        public override SyntaxNode? VisitReturnStatement(ReturnStatementSyntax node)
+        {
+            return SyntaxFactory.ParseStatement("goto __Return;");
         }
 
         public override SyntaxNode VisitIdentifierName(IdentifierNameSyntax node)
@@ -319,6 +421,10 @@ while (__FLECS__.ecs_query_next({{varItName}})) {
                 return base.VisitIdentifierName(node);
 
             var name = node.Identifier.ToString();
+            var symbol = Base.Model.GetSymbolInfo(node).Symbol;
+            if (symbol is ITypeSymbol)
+                return node;
+            
             //if (_replacedIdentifiers.TryGetValue(name, out var replaced))
             //    return replaced;
             
@@ -362,11 +468,25 @@ while (__FLECS__.ecs_query_next({{varItName}})) {
                 {
                     return SyntaxFactory.ParseExpression("Unsafe.As<__FLECS__.ecs_entity_t, EntityId>(ref entities[i0]).WithWorld(global::revghost.flecs.World.FromExistingUnsafe(__it__->world))");
                 }
+                
+                if (name == "Event")
+                {
+                    return SyntaxFactory.ParseExpression(
+                        $"__it__->event"
+                    );
+                }
+                    
+                if (name == "EventId")
+                {
+                    return SyntaxFactory.ParseExpression(
+                        $"__it__->event_id"
+                    );
+                }
 
                 return base.VisitIdentifierName(node);
             }
 
-            return CreateComponentAccess(string.Empty, index, node);
+            return CreateComponentAccess(string.Empty, index, default, node);
         }
 
         private Dictionary<SyntaxNode, (string filter, string componentName)> _replacedIdentifiers = new();
@@ -379,9 +499,11 @@ while (__FLECS__.ecs_query_next({{varItName}})) {
                 if (node.Expression is IdentifierNameSyntax identifierName)
                 {
                     var name = identifierName.ToString();
-                    var index = IndexOfTerm(string.Empty, name) + 1;
+                    var index = IndexOfTerm(string.Empty, name);
                     if (index < 0)
                         return base.VisitIsPatternExpression(node);
+                    
+                    index++;
                     
                     _replacedIdentifiers[recursive] = (string.Empty, name);
                     return SyntaxFactory.ParseExpression($"c{index} != null");

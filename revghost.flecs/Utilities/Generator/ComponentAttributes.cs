@@ -7,6 +7,7 @@ namespace revghost.flecs.Utilities.Generator;
 /// <remarks>
 /// If you wish to use a generic argument from the struct, use the generic-less version <see cref="ManagedFieldAttribute"/>
 /// </remarks>
+[AttributeUsage(AttributeTargets.Struct, AllowMultiple = true)]
 public class ManagedFieldAttribute<T> : Attribute
 {
     public ManagedFieldAttribute(string name) {}
@@ -15,6 +16,7 @@ public class ManagedFieldAttribute<T> : Attribute
 /// <summary>
 /// Add a managed field to a <see cref="IComponent"/> struct
 /// </summary>
+[AttributeUsage(AttributeTargets.Struct, AllowMultiple = true)]
 public class ManagedFieldAttribute : Attribute
 {
     /// <summary>

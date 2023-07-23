@@ -13,18 +13,66 @@ public interface IStaticEntityReserveId
     static abstract EntityId? ReservedId();
 }
 
-public class AnyEntity<T> : IStaticEntity, IStaticEntitySetup, IStaticEntityCustomName, IStaticEntityReserveId, IStaticEntityIsType
+file class AnyEntityParent : IStaticEntity, IStaticEntityCustomName
+{
+    public static string Name()
+    {
+        return "types";
+    }
+}
+
+public class AnyEntity<T> : IStaticEntity, IStaticEntitySetup, IStaticEntityCustomName, IStaticEntityReserveId, IStaticEntityIsType, IStaticEntityParent
 {
     public static EntityId? ReservedId()
     {
+        if (typeof(T) == typeof(bool))
+        {
+            return flecs.FLECS__Eecs_bool_t;
+        }
+        
         if (typeof(T) == typeof(float))
         {
             return flecs.FLECS__Eecs_f32_t;
+        }
+        
+        if (typeof(T) == typeof(sbyte))
+        {
+            return flecs.FLECS__Eecs_i8_t;
+        }
+        
+        if (typeof(T) == typeof(byte))
+        {
+            return flecs.FLECS__Eecs_u8_t;
         }
 
         if (typeof(T) == typeof(int))
         {
             return flecs.FLECS__Eecs_i32_t;
+        }
+        
+        if (typeof(T) == typeof(uint))
+        {
+            return flecs.FLECS__Eecs_u32_t;
+        }
+        
+        if (typeof(T) == typeof(long))
+        {
+            return flecs.FLECS__Eecs_i64_t;
+        }
+        
+        if (typeof(T) == typeof(ulong))
+        {
+            return flecs.FLECS__Eecs_u64_t;
+        }
+        
+        if (typeof(T) == typeof(nint))
+        {
+            return flecs.FLECS__Eecs_iptr_t;
+        }
+        
+        if (typeof(T) == typeof(nuint))
+        {
+            return flecs.FLECS__Eecs_uptr_t;
         }
 
         return null;
@@ -35,7 +83,7 @@ public class AnyEntity<T> : IStaticEntity, IStaticEntitySetup, IStaticEntityCust
         if (ReservedId() != null)
             return null!;
         
-        var fields = typeof(T).GetFields();
+        var fields = typeof(T).GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
         return fields.Select(f =>
         {
             return new StaticEntityTypeData.Field
@@ -51,7 +99,7 @@ public class AnyEntity<T> : IStaticEntity, IStaticEntitySetup, IStaticEntityCust
 
     public static string Name()
     {
-        return typeof(T).Name;
+        return ManagedTypeData<T>.CSharpName;
     }
 
     public static unsafe void Setup(World world)
@@ -67,6 +115,8 @@ public class AnyEntity<T> : IStaticEntity, IStaticEntitySetup, IStaticEntityCust
         var i = 0;
         foreach (var field in Members())
         {
+            world.Register(field.Type);
+            
             // TODO: it need to be freed later
             var nativeName = new NativeString(field.Name);
             desc.members[i++] = new flecs.ecs_member_t
@@ -78,6 +128,14 @@ public class AnyEntity<T> : IStaticEntity, IStaticEntitySetup, IStaticEntityCust
         
         var ent = flecs.ecs_struct_init(world.Handle, &desc);
         Console.WriteLine(ent.Data.Data);
+    }
+
+    public static EntityId Parent()
+    {
+        if (ReservedId() != default)
+            return default;
+
+        return StaticEntity<AnyEntityParent>.Id;
     }
 }
 
@@ -133,6 +191,7 @@ public struct StaticEntityData
     public EntityId Parent;
 
     public Action<World>? Setup;
+    public bool CanBeAutoRegistered;
 }
 
 public struct StaticEntityTypeData
@@ -174,7 +233,8 @@ public static class StaticEntity
             FullPath = _data.TryGetValue(parent, out var parentData) ? $"{parentData.FullPath}.{name}" : name,
             Id = id,
             Parent = parent,
-            Setup = setup
+            Setup = setup,
+            CanBeAutoRegistered = true
         });
 
         return id;
@@ -201,7 +261,8 @@ public static class StaticEntity
             FullPath = _data.TryGetValue(parent, out var parentData) ? $"{parentData.FullPath}.{name}" : name,
             Id = id,
             Parent = parent,
-            Setup = setup
+            Setup = setup,
+            CanBeAutoRegistered = true
         });
 
         return id;

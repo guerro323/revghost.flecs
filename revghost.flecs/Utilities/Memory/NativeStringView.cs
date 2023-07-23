@@ -65,4 +65,6 @@ public unsafe ref struct NativeStringView
     {
         FirstChar = ref *(byte*) ptr;
     }
+
+    public static implicit operator NativeStringView(NativeString str) => new((IntPtr) Unsafe.AsPointer(ref str.FirstChar));
 }

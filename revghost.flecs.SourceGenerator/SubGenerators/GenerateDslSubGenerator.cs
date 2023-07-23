@@ -98,7 +98,7 @@ public class GenerateDslSubGenerator : SubGenerator
             else if (fieldAttributes.Any(a => a.AttributeClass!.Name == "PairSecond"))
                 pairIndex = 0;
 
-            var fieldKind = Term.FilterKind.None;
+            var fieldKind = Term.FilterKind.And;
             if (field.NullableAnnotation == NullableAnnotation.Annotated)
                 fieldKind = Term.FilterKind.Optional;
 
@@ -120,6 +120,12 @@ public class GenerateDslSubGenerator : SubGenerator
                 }
             }
 
+            if (fieldTypeName.StartsWith("global::revghost.flecs.Entity")
+                || fieldTypeName.StartsWith("global::revghost.flecs.Pair"))
+            {
+                fieldTypeName = "global::revghost.flecs.Wildcard";
+            }
+            
             // TODO: don't add to terms if it's a [Param], [State] or another filter field
             terms.Add(new Term
             {
@@ -136,6 +142,9 @@ public class GenerateDslSubGenerator : SubGenerator
                             .AttributeClass!
                             .TypeArguments[0].GetTypeName().Replace("?", string.Empty)
                         : fieldTypeName)
+                    : null,
+                SrcEntity = fieldAttributes.Any(a => a.AttributeClass!.Name.StartsWith("Singleton"))
+                    ? "$singleton"
                     : null,
                 Access = field.IsReadOnly ? Term.AccessModifier.In : Term.AccessModifier.InOut,
                 Kind = fieldKind,
@@ -232,10 +241,18 @@ public class GenerateDslSubGenerator : SubGenerator
 
                                 currentTerm.Access = attrName switch
                                 {
-                                    "InAttribute" => Term.AccessModifier.In,
-                                    "RefAttribute" => Term.AccessModifier.InOut,
+                                    "InAttribute" => Term.AccessModifier.None,
+                                    "RefAttribute" => Term.AccessModifier.None,
                                     "WriteAttribute" => Term.AccessModifier.Out,
+                                    "NoneAttribute" => Term.AccessModifier.None,
                                     _ => throw new InvalidOperationException($"no modifier for '{attrName}'")
+                                };
+                                currentTerm.Kind = attrName switch
+                                {
+                                    "InAttribute" => Term.FilterKind.And,
+                                    "NoneAttribute" => Term.FilterKind.Not,
+                                    "None" => Term.FilterKind.Not,
+                                    _ => Term.FilterKind.And
                                 };
                                 currentTerm.SrcEntity = attrName switch
                                 {
@@ -261,7 +278,7 @@ public class GenerateDslSubGenerator : SubGenerator
                         var kind = EKind.Filter;
                         if (symbolBase.AllInterfaces.Any(iface => iface.Name == "ISystem"))
                             kind = EKind.System;
-                        else if (symbolBase.AllInterfaces.Any(iface => iface.Name == "IObserver"))
+                        else if (symbolBase.AllInterfaces.Any(iface => iface.Name == "IEntityObserver"))
                             kind = EKind.Observer;
                         else if (symbolBase.AllInterfaces.Any(iface => iface.Name == "IProcessor"))
                             kind = EKind.Processor;
@@ -323,9 +340,13 @@ public class GenerateDslSubGenerator : SubGenerator
         }
         codeBuilder.AppendLine();
         codeBuilder.AppendLine();
-        codeBuilder.Append("namespace ");
-        codeBuilder.Append(export.Namespace);
-        codeBuilder.Append(";");
+        // HACK: Global namespaces start with '<'
+        if (!export.Namespace.StartsWith("<"))
+        {
+            codeBuilder.Append("namespace ");
+            codeBuilder.Append(export.Namespace);
+            codeBuilder.Append(";");
+        }
         codeBuilder.AppendLine();
         codeBuilder.AppendLine();
         foreach (var parent in export.Parents)
@@ -360,18 +381,20 @@ public class GenerateDslSubGenerator : SubGenerator
                 codeBuilder.BeginBracket();
                 
                 codeBuilder.AppendLine("id = ");
+                var idBuilder = new CodeBuilder();
                 if (term.IsPair)
                 {
-                    codeBuilder.Append("__FLECS__.ecs_pair(");
-                    AppendStaticEntityId(codeBuilder, term.NameLeft);
-                    codeBuilder.Append(',');
-                    AppendStaticEntityId(codeBuilder, term.NameRight);
-                    codeBuilder.Append(')');
+                    idBuilder.Append("__FLECS__.ecs_pair(");
+                    AppendStaticEntityId(idBuilder, term.NameLeft);
+                    idBuilder.Append(',');
+                    AppendStaticEntityId(idBuilder, term.NameRight);
+                    idBuilder.Append(')');
                 }
                 else
                 {
-                    AppendStaticEntityId(codeBuilder, term.NameLeft);
+                    AppendStaticEntityId(idBuilder, term.NameLeft);
                 }
+                codeBuilder.Append(idBuilder.ToString());
 
                 codeBuilder.Append(',');
                 if (term.Access != Term.AccessModifier.None)
@@ -380,14 +403,27 @@ public class GenerateDslSubGenerator : SubGenerator
                     codeBuilder.Append(term.Access.ToString());
                     codeBuilder.Append(',');
                 }
+                else
+                {
+                    codeBuilder.AppendLine("inout = __FLECS__.ecs_inout_kind_t.EcsInOutNone,");
+                }
 
                 if (term.Kind != Term.FilterKind.None)
                 {
                     codeBuilder.AppendLine("oper = ");
-                    if (term.Kind == Term.FilterKind.Optional)
+                    switch (term.Kind)
                     {
-                        codeBuilder.Append("__FLECS__.ecs_oper_kind_t.EcsOptional");
+                        case Term.FilterKind.Optional:
+                            codeBuilder.Append("__FLECS__.ecs_oper_kind_t.EcsOptional");
+                            break;
+                        case Term.FilterKind.And:
+                            codeBuilder.Append("__FLECS__.ecs_oper_kind_t.EcsAnd");
+                            break;
+                        case Term.FilterKind.Not:
+                            codeBuilder.Append("__FLECS__.ecs_oper_kind_t.EcsNot");
+                            break;
                     }
+
                     codeBuilder.Append(',');
                 }
 
@@ -412,10 +448,18 @@ public class GenerateDslSubGenerator : SubGenerator
 
                 if (term.SrcEntity != null)
                 {
-                    codeBuilder.AppendLine($"id = {term.SrcEntity},");
-                    codeBuilder.AppendLine($"flags = __FLECS__.EcsIsEntity,");
+                    codeBuilder.AppendLine();
+                    if (term.SrcEntity == "$singleton")
+                    {
+                        codeBuilder.Append($"id = {idBuilder.ToString()},");
+                    }
+                    else
+                    {
+                        codeBuilder.AppendLine($"id = {term.SrcEntity},");
+                        codeBuilder.AppendLine($"flags = __FLECS__.EcsIsEntity,");
+                    }
                 }
-                
+
                 codeBuilder.EndBracket();
                 codeBuilder.Append(',');
 
@@ -433,13 +477,7 @@ public class GenerateDslSubGenerator : SubGenerator
             codeBuilder.EndBracket();
             codeBuilder.Append(';');
             codeBuilder.AppendLine();
-        }
-
-        if (export.Kind == EKind.System)
-        {
-            codeBuilder.AppendLine("public global::revghost.flecs.World RealWorld { get; }");
-            codeBuilder.AppendLine("public global::revghost.flecs.World World { get; }");
-            codeBuilder.AppendLine("public float SystemDeltaTime { get; }");
+            codeBuilder.AppendLine("static __FLECS__.ecs_filter_desc_t global::revghost.flecs.IEntityFilter.GetFilter() => Filter;");
         }
         
         codeBuilder.AppendLine("public global::revghost.flecs.Entity Entity { get; }");
@@ -448,14 +486,16 @@ public class GenerateDslSubGenerator : SubGenerator
         // Partial each
         if (export.Kind is EKind.System or EKind.Processor or EKind.Observer) {
             var callback = "&EachUnmanaged";
-            if (export.Current.Arity > 0)
+            if (export.HasRecursiveArity)
             {
                 callback = "(delegate*unmanaged<__FLECS__.ecs_iter_t*, void>) Marshal.GetFunctionPointerForDelegate(EachUnmanaged)";
             }
+            
+            codeBuilder.AppendLine($"static __FLECS__.ecs_iter_action_t global::revghost.flecs.IProcessor.GetAction() => new() {{ Pointer = {callback} }};");
 
             // System state
             {
-                codeBuilder.AppendLine("private struct __SYSTEM_STATE__");
+                codeBuilder.AppendLine("public struct __SYSTEM_STATE__");
                 codeBuilder.BeginBracket();
                 foreach (var term in terms)
                 {
@@ -481,8 +521,16 @@ public class GenerateDslSubGenerator : SubGenerator
                         foreach (var term in terms)
                         {
                             if (!term.IsFilter)
+                            {
+                                // Assert that static entity exists
+                                if (!string.IsNullOrEmpty(term.NameLeft))
+                                    codeBuilder.AppendLine($"_ = world.Get<{term.NameLeft}>();");
+                                if (!string.IsNullOrEmpty(term.NameRight))
+                                    codeBuilder.AppendLine($"_ = world.Get<{term.NameRight}>();");
+                                
                                 continue;
-                            
+                            }
+
                             codeBuilder.BeginBracket();
                             codeBuilder.AppendLine("var queryDesc = new __FLECS__.ecs_query_desc_t()");
                             codeBuilder.BeginBracket();
@@ -523,6 +571,12 @@ public class GenerateDslSubGenerator : SubGenerator
                         list.Add(new FieldInfo {IsBuiltin = true, Name = "DeltaTime"});
                         list.Add(new FieldInfo {IsBuiltin = true, Name = "World"});
                         list.Add(new FieldInfo {IsBuiltin = true, Name = "RealWorld"});
+
+                        //if (export.Kind is EKind.Observer)
+                        {
+                            list.Add(new FieldInfo {IsBuiltin = true, Name = "Event"});
+                            list.Add(new FieldInfo {IsBuiltin = true, Name = "EventId"});
+                        }
                     }
 
                     foreach (var term in terms)
@@ -542,7 +596,8 @@ public class GenerateDslSubGenerator : SubGenerator
                         list.Add(new FieldInfo
                         {
                             Name = term.Symbol.Name,
-                            TypeName = term.Symbol.Type.GetTypeNameWithoutAnnotations()
+                            TypeName = term.Symbol.Type.GetTypeNameWithoutAnnotations(),
+                            IsSingle = !string.IsNullOrEmpty(term.SrcEntity)
                         });
                     }
                 }
@@ -552,13 +607,14 @@ public class GenerateDslSubGenerator : SubGenerator
                 var eachCompiler = new EachCompiler();
                 eachCompiler.Builder = new(codeBuilder);
                 eachCompiler.Terms = transformedTerms;
+                eachCompiler.IsForeach = export.Kind == EKind.Observer || terms.Any(t => string.IsNullOrEmpty(t.SrcEntity));
                 eachCompiler.Body = ((INamedTypeSymbol) symbol).GetMembers("Each").First().DeclaringSyntaxReferences
                     .First()
                     .GetSyntax()
                     .ChildNodes()
                     .Last();
                 eachCompiler.Log = (str) => Log(str, 1);
-                eachCompiler.HasArity = export.Current.Arity > 0;
+                eachCompiler.HasArity = export.HasRecursiveArity;
                 eachCompiler.originFields = ((INamedTypeSymbol) symbol).GetMembers().OfType<IFieldSymbol>().ToArray();
                 eachCompiler.Model = model;
                 eachCompiler.origin = symbol;
@@ -585,7 +641,7 @@ public class GenerateDslSubGenerator : SubGenerator
             codeBuilder.AppendLine("public Span<__THIS__>.Enumerator GetEnumerator() => throw new global::System.Diagnostics.UnreachableException(\"This code should have been replaced\");");
         }
 
-        Log(codeBuilder.ToString());
+        // Log(codeBuilder.ToString());
 
         var hint = "Dsl";
         foreach (var exp in export.Parents)
@@ -622,7 +678,8 @@ public class GenerateDslSubGenerator : SubGenerator
     {
         public EKind Kind;
         public ExternalSymbol Current => Parents[^1];
-        
+        public bool HasRecursiveArity => Parents.Any(p => p.Arity > 0);
+
         private static IEnumerable<INamedTypeSymbol> GetParentTypes(ISymbol method)
         {
             var type = method.ContainingType;
@@ -674,7 +731,9 @@ public class GenerateDslSubGenerator : SubGenerator
         public enum FilterKind
         {
             None,
-            Optional
+            Optional,
+            And,
+            Not
         }
 
         public record struct TraversalInfo(bool Builtin, string Name);

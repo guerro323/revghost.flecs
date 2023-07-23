@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using static flecs_hub.flecs;
@@ -57,6 +58,9 @@ public struct Pair
 public struct PairId
 {
     public ecs_id_t Handle;
+
+    public EntityId First => Unsafe.As<ulong, EntityId>(ref Unsafe.AsRef(ECS_PAIR_FIRST(Handle.Data)));
+    public EntityId Second => Unsafe.As<ulong, EntityId>(ref Unsafe.AsRef(ECS_PAIR_SECOND(Handle.Data)));
     
     public static PairId From(EntityId left, EntityId right)
     {
@@ -76,6 +80,12 @@ public struct PairId
     public static implicit operator PairId((EntityId left, EntityId right) tuple)
     {
         return From(tuple.left, tuple.right);
+    }
+    
+    public static implicit operator PairId(ecs_id_t id)
+    {
+        Debug.Assert(ecs_id_is_pair(id), "ecs_id_is_pair(id)");
+        return new PairId {Handle = id};
     }
 
     public override string ToString()

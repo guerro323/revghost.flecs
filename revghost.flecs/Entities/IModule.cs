@@ -11,7 +11,10 @@ public interface IModule : IStaticEntity, IStaticEntitySetup, IStaticEntityParen
 public interface IModule<TParent> : IModule, IStaticEntityParent<TParent> 
     where TParent : IStaticEntity
 {
-    
+    static EntityId IStaticEntityParent.Parent()
+    {
+        return StaticEntity<TParent>.Id;
+    }
 }
 
 public readonly struct RootModule : IModule, IStaticEntityCustomName

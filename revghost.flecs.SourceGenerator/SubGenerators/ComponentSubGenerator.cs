@@ -169,19 +169,31 @@ public class ComponentSubGenerator : SubGenerator
                 type = (string) attr.ConstructorArguments[1].Value;
             }
             
-            codeBuilder.AppendLine($"private GCHandle {name}Handle;");
+            codeBuilder.AppendLine($"private global::revghost.flecs.InternalGCHandle {name}Handle;");
             codeBuilder.AppendLine($"public {type} {name}");
             codeBuilder.BeginBracket();
             codeBuilder.AppendLine($"get => ({type}) {name}Handle.Target;");
-            codeBuilder.AppendLine($"set {{ if ({name}Handle.Equals(default)) {name}Handle = GCHandle.Alloc(null); {name}Handle.Target = value; }}");
+            codeBuilder.AppendLine($"set {{ if ({name}Handle.IsAllocated) {name}Handle.Free(); {name}Handle = InternalGCHandle.Alloc(value); }}");
             codeBuilder.EndBracket();
             
-            getHookSetup("ctor").AppendLine($"self.{name}Handle = GCHandle.Alloc(null);");
+            getHookSetup("ctor").AppendLine($"self.{name}Handle = global::revghost.flecs.InternalGCHandle.Alloc(null);");
             getHookSetup("dtor").AppendLine($"if (!self.{name}Handle.Equals(default)) self.{name}Handle.Free();");
             getHookSetup("move").AppendLine($"if (!selfDst.{name}Handle.Equals(default)) selfDst.{name}Handle.Free();");
-            var cpy = getHookSetup("cpy");
-            cpy.AppendLine($"if (!selfDst.{name}Handle.Equals(default)) selfDst.{name}Handle.Free();");
-            cpy.AppendLine($"selfDst.{name}Handle = selfSrc.{name}Handle;");
+            getHookSetup("cpy").AppendLine($"if (!selfDst.{name}Handle.Equals(default)) selfDst.{name}Handle.Free();");
+        }
+
+        foreach (var member in symbol.GetMembers())
+        {
+            if (member is not IFieldSymbol field)
+                continue;
+
+            if (!field.Type.AllInterfaces.Any(iface => iface.Name.StartsWith("IMemoryObject")))
+                continue;
+            
+            getHookSetup("ctor").AppendLine($"self.{field.Name}.Constructor();");
+            getHookSetup("dtor").AppendLine($"self.{field.Name}.Destructor();");
+            getHookSetup("move").AppendLine($"selfDst.{field.Name}.Move(ref selfSrc.{field.Name});");
+            getHookSetup("cpy").AppendLine($"selfDst.{field.Name}.Copy(in selfSrc.{field.Name});");
         }
 
         var additionalSetup = new CodeBuilder(codeBuilder);
@@ -192,9 +204,19 @@ public class ComponentSubGenerator : SubGenerator
         foreach (var (method, cb) in managedHooksSetup)
         {
             cb.FlushScope();
+
+            var callback = $"&_{method}";
+            if (export.HasRecursiveArity)
+            {
+                var param = "void*, void*, int, __FLECS__.ecs_type_info_t*";
+                if (method is "ctor" or "dtor")
+                    param = "void*, int, __FLECS__.ecs_type_info_t*";
+                callback = $"(delegate*unmanaged<{param}, void>) Marshal.GetFunctionPointerForDelegate(_{method})";
+            }
             
-            additionalSetupFinal.AppendLine($", {method}: &_{method}");
-            additionalSetup.AppendLine("[UnmanagedCallersOnly]");
+            additionalSetupFinal.AppendLine($", {method}: {callback}");
+            if (!export.HasRecursiveArity)
+                additionalSetup.AppendLine("[UnmanagedCallersOnly]");
             if (method is "ctor" or "dtor")
             {
                 additionalSetup.AppendLine(
@@ -258,7 +280,7 @@ public class ComponentSubGenerator : SubGenerator
             type = new __FLECS__.ecs_type_info_t
             {
                 size = ManagedTypeData<__THIS__>.Size,
-                alignment = ManagedTypeData<__THIS__>.Size == 0 ? 0 : 4
+                alignment = ManagedTypeData<__THIS__>.Alignment
             }
         };
         
@@ -300,7 +322,7 @@ public class ComponentSubGenerator : SubGenerator
 
     static StaticEntityTypeData.Field[] IStaticEntityIsType.Members()
     {
-        var fields = typeof(__THIS__).GetFields();
+        var fields = typeof(__THIS__).GetFields((global::System.Reflection.BindingFlags) 0x34);
         return fields.Select(f =>
         {
             return new StaticEntityTypeData.Field
@@ -328,8 +350,11 @@ public class ComponentSubGenerator : SubGenerator
                 var genericArgs = string.Empty;
                 for (var i = 0; i < export.Current.Arity.Length; i++)
                 {
-                    if (i > 0) codeBuilder.Append(',');
-                    codeBuilder.Append(export.Current.Arity[i]);
+                    if (i > 0)
+                    {
+                        genericArgs += ",";
+                    }
+                    genericArgs += export.Current.Arity[i];
                 }
                         
                 thisType = $"{thisType}<{genericArgs}>";
@@ -347,6 +372,8 @@ public class ComponentSubGenerator : SubGenerator
     public record struct Export(IList<string> Imports, string Namespace, IList<ExternalSymbol> Parents)
     {
         public ExternalSymbol Current => Parents[^1];
+        
+        public bool HasRecursiveArity => Parents.Any(p => p.Arity.Length > 0);
         
         private static IEnumerable<INamedTypeSymbol> GetParentTypes(ISymbol method)
         {

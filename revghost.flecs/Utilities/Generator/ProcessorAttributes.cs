@@ -27,3 +27,5 @@ public class PhaseAttribute : Attribute
         Type = type;
     }
 }
+
+public class YieldExistingAttribute : Attribute {}

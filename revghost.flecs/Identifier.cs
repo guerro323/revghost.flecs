@@ -6,6 +6,19 @@ public struct Identifier
 {
     public flecs.ecs_id_t Handle;
 
+    // TODO: Pair version of Is/IsNot
+    public bool Is<TStatic>()
+        where TStatic : IStaticEntity
+    {
+        return Handle.Data == StaticEntity<TStatic>.Id.Handle.Data;
+    }
+    
+    public bool IsNot<TStatic>()
+        where TStatic : IStaticEntity
+    {
+        return Handle.Data != StaticEntity<TStatic>.Id.Handle.Data;
+    }
+
     public static implicit operator Identifier(Entity entity)
     {
         Identifier ret;
